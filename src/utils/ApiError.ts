@@ -1,5 +1,4 @@
 class ApiError extends Error{
-    data:any;
     statuscode:Number;
 
     constructor(message: string|undefined, statuscode: Number) {
