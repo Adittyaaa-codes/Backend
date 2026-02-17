@@ -12,7 +12,7 @@ const chat_ex = AsyncHandler(async (req:Request, res:Response) => {
         ? bearerHeader.split(" ")[1]
         : cookieToken;
 
-    console.log("chat_ex → token:", token); 
+    // console.log("chat_ex → token:", token); 
 
     if (!token) {
         throw new ApiError("Unauthorized: missing access token", 401);
@@ -49,7 +49,7 @@ const chat_qa = AsyncHandler(async (req:Request, res:Response) => {
         ? bearerHeader.split(" ")[1]
         : cookieToken;
 
-    console.log("chat_ex → token:", token); 
+    // console.log("chat_ex → token:", token); 
 
     if (!token) {
         throw new ApiError("Unauthorized: missing access token", 401);

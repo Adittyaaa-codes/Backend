@@ -2,8 +2,9 @@ import mongoose, { Schema } from "mongoose";
 
 export interface ISubject extends mongoose.Document{
     subName:string,
-    resources:string,
+    globalResources:string,
     owner:Schema.Types.ObjectId
+    chapters:Schema.Types.ObjectId
 }
 
 const subSchema = new mongoose.Schema<ISubject>({
@@ -12,15 +13,22 @@ const subSchema = new mongoose.Schema<ISubject>({
         required:true,
         unique:true
     },
-    resources:[
+    globalResources:[
         {
-            type:String,
+            type:Schema.Types.ObjectId,
+            ref:"Document"
         }
     ],
     owner:{
         type:Schema.Types.ObjectId,
         ref:"User"
-    }
+    },
+    chapters:[
+        {
+        type:Schema.Types.ObjectId,
+        ref:"Chapter"
+        }
+    ]
 
 },{timestamps:true})
 

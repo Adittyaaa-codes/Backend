@@ -1,4 +1,3 @@
-// upload.controller.ts
 import { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
@@ -7,10 +6,18 @@ import FormData from 'form-data';
 import ApiResponse from '../utils/ApiResponse';
 import ApiError from '../utils/ApiError';
 import AsyncHandler from '../utils/AsyncHandler';
+import { Document } from '../models/document.model';
+
+type UploadedFile = {
+    path?: string;
+    originalname: string;
+    mimetype: string;
+    size: number;
+};
 
 const uploadDocs = async (req: Request, res: Response) => {
     try {
-        const files = req.files as Express.Multer.File[];
+        const files: UploadedFile[] = (req as Request & { files?: UploadedFile[] }).files ?? [];
 
         if (!files?.length) {
             throw new ApiError('No files provided', 400);
@@ -25,7 +32,15 @@ const uploadDocs = async (req: Request, res: Response) => {
 
         const form = new FormData();
 
-        // ✅ diskStorage → read from disk path
+        // Track created document IDs to update status later
+        const createdDocIds: string[] = [];
+        (req as any)._createdDocIds = createdDocIds;
+        
+        const userId = (req as any).user?._id?.toString();
+        if (!userId) {
+            throw new ApiError('Unauthorized', 401);
+        }
+
         for (const file of files) {
             if (!file.path || !fs.existsSync(file.path)) {
                 throw new ApiError(`File not found: ${file.path}`, 500);
@@ -38,7 +53,18 @@ const uploadDocs = async (req: Request, res: Response) => {
                 filename: file.originalname,
                 contentType: file.mimetype,
             });
+
+            const doc = await Document.create({
+                userId: userId,
+                fileName: file.originalname,
+                filePath: file.path,
+                fileSize: file.size,
+                mimeType: file.mimetype,
+                status: 'processing',
+            });
+            createdDocIds.push(String(doc._id));
         }
+
 
         const response = await axios.post(
             `${process.env.FASTAPI_URL}/upload_docs`,
@@ -53,6 +79,14 @@ const uploadDocs = async (req: Request, res: Response) => {
             }
         );
 
+        // Mark documents as completed on success
+        if (createdDocIds.length) {
+            await Document.updateMany(
+                { _id: { $in: createdDocIds } },
+                { $set: { status: 'completed' } }
+            );
+        }
+
         // ✅ Clean up temp files
         for (const file of files) {
             if (file.path && fs.existsSync(file.path)) {
@@ -63,13 +97,24 @@ const uploadDocs = async (req: Request, res: Response) => {
         res.json(new ApiResponse(true, 'Documents uploaded & indexed', response.data));
 
     } catch (error: any) {
-        // Clean up on error
-        const files = req.files as Express.Multer.File[];
+        // Mark documents as failed on error and clean up
+        const files: UploadedFile[] = (req as Request & { files?: UploadedFile[] }).files ?? [];
         for (const file of files || []) {
             if (file.path && fs.existsSync(file.path)) {
                 fs.unlinkSync(file.path);
             }
         }
+
+        try {
+            // Best-effort status update
+            const createdDocIds: string[] = (req as any)._createdDocIds || [];
+            if (createdDocIds.length) {
+                await Document.updateMany(
+                    { _id: { $in: createdDocIds } },
+                    { $set: { status: 'failed' } }
+                );
+            }
+        } catch {}
 
         console.error('Upload error:', error.message);
         res.status(500).json(new ApiResponse(false, error.message));
@@ -94,6 +139,17 @@ const listDocs = AsyncHandler(async (req: Request, res: Response) => {
         if (response.status >= 400) {
             throw new ApiError(`FastAPI error: ${response.status}`, response.status);
         }
+
+        const userId = (req as any).user?._id?.toString();
+        if (!userId) {
+            throw new ApiError('Unauthorized', 401);
+        }
+
+        // const docs = await Document.findById({
+        //     userId:userId
+        // })
+
+        // console.log(docs)
 
         res.json(
             new ApiResponse(true, 'Documents listed', response.data)
