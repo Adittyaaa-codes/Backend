@@ -3,6 +3,7 @@ import { Request, Response, CookieOptions } from "express";
 import AsyncHandler from "../utils/AsyncHandler.ts";
 import ApiError from "../utils/ApiError.ts";
 import ApiResponse from "../utils/ApiResponse.ts";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
 
 const userRegister = AsyncHandler(async (req:Request,res:Response)=>{
     const { username, fullname, email, password } = req.body;
@@ -103,10 +104,7 @@ const userLogin = AsyncHandler(async (req: Request, res: Response) => {
         }))
 });
 
-interface AuthenticatedRequest extends Request {
-  user?: { _id: string };
-  tokenData?: any;
-}
+
 
 const userLogout = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     if (!req.user?._id) {

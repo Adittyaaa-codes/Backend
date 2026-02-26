@@ -1,8 +1,16 @@
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import ApiError from "../utils/ApiError.ts";
 import AsyncHandler from "../utils/AsyncHandler.ts";
 import jwt, { JwtPayload, TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
 import { User } from "../models/user.model.ts";
+
+export interface AuthenticatedRequest extends Request {
+  user?: {
+    _id: mongoose.Types.ObjectId;
+    email: string;
+  };
+}
 
 interface AccessPayload extends JwtPayload {
   _id: string;
@@ -12,7 +20,7 @@ interface AccessPayload extends JwtPayload {
   role?: string;
 }
 
-const verifyJWT = AsyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+const verifyJWT = AsyncHandler(async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     try {
         // Prefer Authorization Bearer header, fallback to cookie AccessToken
         const authHeader = req.headers.authorization;

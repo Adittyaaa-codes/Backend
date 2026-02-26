@@ -2,9 +2,10 @@ import mongoose, { Schema } from "mongoose";
 
 export interface ISubject extends mongoose.Document{
     subName:string,
+    desc:string
     globalResources:string,
     owner:Schema.Types.ObjectId
-    chapters:Schema.Types.ObjectId
+    chapters:Schema.Types.ObjectId[]
 }
 
 const subSchema = new mongoose.Schema<ISubject>({
@@ -12,6 +13,9 @@ const subSchema = new mongoose.Schema<ISubject>({
         type:String,
         required:true,
         unique:true
+    },
+    desc:{
+        type:String,  
     },
     globalResources:[
         {

@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from "bcrypt";
 import { randomBytes } from "crypto";
 
-//model->subject->chapter->page
+//model->subject->chapter
 
 export interface IUser {
     fullname: string;
