@@ -1,9 +1,9 @@
-import { User } from "../models/user.model.ts";
+import { User } from "../models/user.model";
 import { Request, Response, CookieOptions } from "express";
-import AsyncHandler from "../utils/AsyncHandler.ts";
-import ApiError from "../utils/ApiError.ts";
-import ApiResponse from "../utils/ApiResponse.ts";
-import { AuthenticatedRequest } from "../middlewares/auth.middleware.ts";
+import AsyncHandler from "../utils/AsyncHandler";
+import ApiError from "../utils/ApiError";
+import ApiResponse from "../utils/ApiResponse";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware";
 
 const userRegister = AsyncHandler(async (req:Request,res:Response)=>{
     const { username, fullname, email, password } = req.body;

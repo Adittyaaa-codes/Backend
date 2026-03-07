@@ -1,10 +1,12 @@
 import { Router } from "express";
-import { verifyJWT } from "../middlewares/auth.middleware.ts";
-import { chat_ex, chat_qa } from "../controllers/chat.controller.ts";
+import { verifyJWT } from "../middlewares/auth.middleware";
+import { createChat, getChats, getChatMessages, deleteChat } from "../controllers/chat.controller";
 
 const router = Router();
 
-router.post('/explain', verifyJWT, chat_ex);
-router.post('/qa', verifyJWT, chat_qa);
+router.post('/', verifyJWT, createChat);
+router.get('/', verifyJWT, getChats);
+router.get('/:chatId/messages', verifyJWT, getChatMessages);
+router.delete('/:chatId', verifyJWT, deleteChat);
 
 export default router;

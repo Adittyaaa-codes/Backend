@@ -1,11 +1,10 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { Request, Response } from 'express';                
-import app from './app.ts'
-import connectDB from './db.ts';
-import ApiError from './utils/ApiError.ts';
-import axios from 'axios';
+import { Request, Response } from 'express';
+import app from './app';
+import connectDB from './db';
+import ApiError from './utils/ApiError';
 
 const port = 3000;
 

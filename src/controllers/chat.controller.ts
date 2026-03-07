@@ -1,81 +1,51 @@
 import ApiError from "../utils/ApiError";
 import ApiResponse from "../utils/ApiResponse";
 import AsyncHandler from "../utils/AsyncHandler";
-import { Request,Response } from "express";
+import { Response } from "express";
+import { AuthenticatedRequest } from "../middlewares/auth.middleware";
+import { Chat } from "../models/chat.model";
+import { Message } from "../models/message.model";
+import mongoose from "mongoose";
 
-const chat_ex = AsyncHandler(async (req:Request, res:Response) => {
-    const {query} = req.body;
-
-    const bearerHeader = req.headers.authorization;
-    const cookieToken = (req as any).cookies?.AccessToken as string | undefined;
-    const token = bearerHeader?.startsWith("Bearer ")
-        ? bearerHeader.split(" ")[1]
-        : cookieToken;
-
-    // console.log("chat_ex → token:", token); 
-
-    if (!token) {
-        throw new ApiError("Unauthorized: missing access token", 401);
-    }
-
-    const response = await fetch(`${process.env.FASTAPI_URL}/chat/explain`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            query:query
-        })
-    });
-
-    if(!response){
-        throw new ApiError("No Response!!",402)
-    }
-
-    const text = await response.text();
-
-    return res.status(200).json(
-        new ApiResponse(true, "Got response from LLM", { text })
-    );
+const createChat = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = (req as any).user?._id?.toString();
+  if (!userId) throw new ApiError("Unauthorized", 401);
+  const { subjectId, chapterId } = req.body || {};
+  if (!subjectId) throw new ApiError("subjectId required", 400);
+  const chat = await Chat.create({ userId: new mongoose.Types.ObjectId(userId), subjectId, chapterId: chapterId || null, title: "", summary: "New conversation" });
+  return res.status(200).json(new ApiResponse(true, "chat created", chat));
 });
 
-const chat_qa = AsyncHandler(async (req:Request, res:Response) => {
-    const {query} = req.body;
-
-    const bearerHeader = req.headers.authorization;
-    const cookieToken = (req as any).cookies?.AccessToken as string | undefined;
-    const token = bearerHeader?.startsWith("Bearer ")
-        ? bearerHeader.split(" ")[1]
-        : cookieToken;
-
-    // console.log("chat_ex → token:", token); 
-
-    if (!token) {
-        throw new ApiError("Unauthorized: missing access token", 401);
-    }
-
-    const response = await fetch(`${process.env.FASTAPI_URL}/chat/qa`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            query:query
-        })
-    });
-
-    if(!response){
-        throw new ApiError("No Response!!",402)
-    }
-
-    const text = await response.text();
-
-    return res.status(200).json(
-        new ApiResponse(true, "Got response from LLM", { text })
-    );
+const getChats = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = (req as any).user?._id?.toString();
+  if (!userId) throw new ApiError("Unauthorized", 401);
+  const { subjectId, chapterId } = req.query as { subjectId?: string; chapterId?: string };
+  const filter: any = { userId: userId };
+  if (subjectId) filter.subjectId = subjectId;
+  if (chapterId) filter.chapterId = chapterId;
+  const chats = await Chat.find(filter).sort({ updatedAt: -1 });
+  return res.status(200).json(new ApiResponse(true, "chats", chats));
 });
 
+const getChatMessages = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = (req as any).user?._id?.toString();
+  if (!userId) throw new ApiError("Unauthorized", 401);
+  const { chatId } = req.params as { chatId: string };
+  if (!chatId) throw new ApiError("chatId required", 400);
+  const messages = await Message.find({ chatId, userId }).sort({ createdAt: 1 });
+  return res.status(200).json(new ApiResponse(true, "messages", messages));
+});
 
-export {chat_ex,chat_qa};
+const deleteChat = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = (req as any).user?._id?.toString();
+  if (!userId) throw new ApiError("Unauthorized", 401);
+  const { chatId } = req.params as { chatId: string };
+  if (!chatId) throw new ApiError("chatId required", 400);
+  const chat = await Chat.findOne({ _id: chatId, userId });
+  if (!chat) throw new ApiError("not found", 404);
+  await Message.deleteMany({ chatId, userId });
+  await Chat.deleteOne({ _id: chatId });
+  return res.status(200).json(new ApiResponse(true, "deleted", null));
+});
+
+export { createChat, getChats, getChatMessages, deleteChat };

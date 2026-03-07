@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
-import ApiError from "../utils/ApiError.ts";
-import AsyncHandler from "../utils/AsyncHandler.ts";
+import ApiError from "../utils/ApiError";
+import AsyncHandler from "../utils/AsyncHandler";
 import jwt, { JwtPayload, TokenExpiredError, JsonWebTokenError } from "jsonwebtoken";
-import { User } from "../models/user.model.ts";
+import { User } from "../models/user.model";
 
 export interface AuthenticatedRequest extends Request {
   user?: {

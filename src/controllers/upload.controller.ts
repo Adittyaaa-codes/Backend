@@ -65,6 +65,12 @@ const uploadDocs = async (req: Request, res: Response) => {
             createdDocIds.push(String(doc._id));
         }
 
+        const subId = req.params;
+        const chId = req.params;
+
+        form.append('userId', userId);
+        form.append('subject', subId);
+        form.append('subject', chId);
 
         const response = await axios.post(
             `${process.env.FASTAPI_URL}/upload_docs`,
