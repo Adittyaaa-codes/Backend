@@ -9,38 +9,69 @@ import mongoose from "mongoose";
 
 const createChat = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = (req as any).user?._id?.toString();
-  if (!userId) throw new ApiError("Unauthorized", 401);
+
+  if (!userId)
+    throw new ApiError("Unauthorized", 401);
+
   const { subjectId, chapterId } = req.body || {};
-  if (!subjectId) throw new ApiError("subjectId required", 400);
-  const chat = await Chat.create({ userId: new mongoose.Types.ObjectId(userId), subjectId, chapterId: chapterId || null, title: "", summary: "New conversation" });
-  return res.status(200).json(new ApiResponse(true, "chat created", chat));
+
+  if (!subjectId)
+    throw new ApiError("subjectId required", 400);
+  const chat = await Chat
+    .create({
+      userId: new mongoose.Types.ObjectId(userId),
+      subjectId, chapterId: chapterId || null, title: "", summary: "New conversation"
+    });
+
+  return res
+    .status(200)
+    .json(new ApiResponse(true, "chat created", chat));
 });
 
 const getChats = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = (req as any).user?._id?.toString();
-  if (!userId) throw new ApiError("Unauthorized", 401);
+  if (!userId) 
+    throw new ApiError("Unauthorized", 401);
+
   const { subjectId, chapterId } = req.query as { subjectId?: string; chapterId?: string };
+
   const filter: any = { userId: userId };
-  if (subjectId) filter.subjectId = subjectId;
-  if (chapterId) filter.chapterId = chapterId;
+  if (subjectId) 
+    filter.subjectId = subjectId;
+  if (chapterId) 
+    filter.chapterId = chapterId;
   const chats = await Chat.find(filter).sort({ updatedAt: -1 });
+
   return res.status(200).json(new ApiResponse(true, "chats", chats));
 });
 
 const getChatMessages = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = (req as any).user?._id?.toString();
-  if (!userId) throw new ApiError("Unauthorized", 401);
+
+  if (!userId) 
+    throw new ApiError("Unauthorized", 401);
+
   const { chatId } = req.params as { chatId: string };
-  if (!chatId) throw new ApiError("chatId required", 400);
+
+  if (!chatId) 
+    throw new ApiError("chatId required", 400);
+
   const messages = await Message.find({ chatId, userId }).sort({ createdAt: 1 });
-  return res.status(200).json(new ApiResponse(true, "messages", messages));
+
+  return res
+  .status(200)
+  .json(new ApiResponse(true, "messages", messages));
 });
 
 const deleteChat = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = (req as any).user?._id?.toString();
-  if (!userId) throw new ApiError("Unauthorized", 401);
+  
+  if (!userId) 
+    throw new ApiError("Unauthorized", 401);
+
   const { chatId } = req.params as { chatId: string };
-  if (!chatId) throw new ApiError("chatId required", 400);
+  if (!chatId) 
+    throw new ApiError("chatId required", 400);
   const chat = await Chat.findOne({ _id: chatId, userId });
   if (!chat) throw new ApiError("not found", 404);
   await Message.deleteMany({ chatId, userId });
@@ -48,4 +79,29 @@ const deleteChat = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
   return res.status(200).json(new ApiResponse(true, "deleted", null));
 });
 
-export { createChat, getChats, getChatMessages, deleteChat };
+const saveMessage = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = (req as any).user?._id?.toString();
+
+  if (!userId)
+    throw new ApiError("Unauthorized", 401);
+
+  const { chatId } = req.params;
+  const { role, content } = req.body;
+
+  if (!chatId) throw new ApiError("chatId required", 400);
+  if (!role || !content) throw new ApiError("role and content are required", 400);
+  if (role !== "user" && role !== "assistant") throw new ApiError("role must be 'user' or 'assistant'", 400);
+
+  const chat = await Chat.findOne({ _id: chatId, userId });
+  if (!chat) throw new ApiError("Chat not found", 404);
+
+  const message = await Message.create({ chatId, userId, role, content });
+
+  if (role === "user" && !chat.title) {
+    await Chat.updateOne({ _id: chatId }, { $set: { title: content.slice(0, 60) } });
+  }
+
+  return res.status(201).json(new ApiResponse(true, "Message saved", message));
+});
+
+export { createChat, getChats, getChatMessages, deleteChat, saveMessage };

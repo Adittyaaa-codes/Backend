@@ -35,7 +35,7 @@ const addChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
 });
 
 const getChapters = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { subjectId } = req.params;
+    const { id: subjectId } = req.params;
 
     const userId = (req as any).user?._id?.toString();
 
@@ -43,7 +43,6 @@ const getChapters = AsyncHandler(async (req: AuthenticatedRequest, res: Response
     if (!subject) throw new ApiError('Subject not found', 404);
 
     const chapters = await Chapter.find({ subject: subjectId })
-        .populate('resources')
         .sort({ order: 1 });
 
     res.json(new ApiResponse(true, 'Chapters fetched', chapters));
@@ -72,13 +71,15 @@ const updateChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Respon
 const deleteChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 
-    const chapter = await Chapter.findByIdAndDelete(id);
+    const userId = (req as any).user?._id?.toString();
+
+    const chapter = await Chapter.findById(id);
     if (!chapter) throw new ApiError('Chapter not found', 404);
 
-    await Subject.updateOne(
-        { _id: chapter.subject },
-        { $pull: { chapters: id } }
-    );
+    const subject = await Subject.findOne({ _id: chapter.subject, owner: userId });
+    if (!subject) throw new ApiError('Unauthorized', 403);
+
+    await chapter.deleteOne();
 
     res.json(new ApiResponse(true, 'Chapter deleted'));
 });

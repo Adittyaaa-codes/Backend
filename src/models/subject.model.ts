@@ -12,7 +12,6 @@ const subSchema = new mongoose.Schema<ISubject>({
     subName:{
         type:String,
         required:true,
-        unique:true
     },
     desc:{
         type:String,  

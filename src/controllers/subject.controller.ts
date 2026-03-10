@@ -30,7 +30,7 @@ const addSubject = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
         owner: userId, 
     });
 
-    console.log("Saved subject owner:", subject.owner);
+    // console.log("Saved subject owner:", subject.owner);
 
     return res.status(201).json(new ApiResponse(true, "New Subject Added", subject));
 });
@@ -40,12 +40,14 @@ const addSubject = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
 const editSubject = AsyncHandler(async(req:AuthenticatedRequest,res:Response)=>{
     const {subName,desc} = req.body;
 
+    const userId = (req as any).user?._id?.toString();
+
     if(!subName||!desc) throw new ApiError("Could not get subject name or description",402)
 
     const {id} = req.params;
 
     const subject = await Subject.findByIdAndUpdate(
-        id,
+        { _id: id, owner: userId },
         {
             subName,
             desc,
@@ -58,7 +60,7 @@ const editSubject = AsyncHandler(async(req:AuthenticatedRequest,res:Response)=>{
 })
 
 const delSubject = AsyncHandler(async(req:AuthenticatedRequest,res:Response)=>{
-    const subId = req.params
+    const {id:subId} = req.params
 
     await Subject.deleteOne({
         _id:subId

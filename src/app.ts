@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from "express";
+import express, { Express, Request, Response ,NextFunction} from "express";
 import cookieParser from "cookie-parser";
 import userRouter from "./routes/user.routes";
 import chatRouter from "./routes/chat.routes";
@@ -27,5 +27,11 @@ app.use("/api/chats",upload.none(), chatRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/subjects", subjectsRouter);
 app.use("/api/chapters", chaptersRouter);
+
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    const status = err.statuscode || 500;
+    const message = err.message || 'Internal Server Error';
+    res.status(status).json({ success: false, message });
+});
 
 export default app

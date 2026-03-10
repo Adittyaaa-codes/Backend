@@ -16,30 +16,34 @@ type UploadedFile = {
 };
 
 const uploadDocs = async (req: Request, res: Response) => {
+    const files: UploadedFile[] = (req as Request & { files?: UploadedFile[] }).files ?? [];
+
+    if (!files?.length) {
+        throw new ApiError('No files provided', 400);
+    }
+
+    const token = req.headers.authorization?.toString().replace('Bearer ', '') ||
+        (req as any).cookies?.AccessToken;
+
+    if (!token) {
+        throw new ApiError('Missing access token', 401);
+    }
+
+    const userId = (req as any).user?._id?.toString();
+    if (!userId) {
+        throw new ApiError('Unauthorized', 401);
+    }
+
+    const { subId, chId } = req.params;
+
+    if (!subId || !chId) {
+        throw new ApiError('Subject and Chapter are required', 400);
+    }
+
+    const createdDocIds: string[] = [];
+
     try {
-        const files: UploadedFile[] = (req as Request & { files?: UploadedFile[] }).files ?? [];
-
-        if (!files?.length) {
-            throw new ApiError('No files provided', 400);
-        }
-
-        const token = req.headers.authorization?.toString().replace('Bearer ', '') ||
-            (req as any).cookies?.AccessToken;
-
-        if (!token) {
-            throw new ApiError('Missing access token', 401);
-        }
-
         const form = new FormData();
-
-        // Track created document IDs to update status later
-        const createdDocIds: string[] = [];
-        (req as any)._createdDocIds = createdDocIds;
-        
-        const userId = (req as any).user?._id?.toString();
-        if (!userId) {
-            throw new ApiError('Unauthorized', 401);
-        }
 
         for (const file of files) {
             if (!file.path || !fs.existsSync(file.path)) {
@@ -47,7 +51,6 @@ const uploadDocs = async (req: Request, res: Response) => {
             }
 
             const buffer = fs.readFileSync(file.path);
-            console.log(`📄 ${file.originalname} → ${buffer.length} bytes`);
 
             form.append('files', buffer, {
                 filename: file.originalname,
@@ -55,22 +58,21 @@ const uploadDocs = async (req: Request, res: Response) => {
             });
 
             const doc = await Document.create({
-                userId: userId,
+                userId,
                 fileName: file.originalname,
                 filePath: file.path,
                 fileSize: file.size,
                 mimeType: file.mimetype,
-                status: 'processing',
+                subject: subId,
+                chapter: chId,
             });
-            createdDocIds.push(String(doc._id));
-        }
 
-        const subId = req.params;
-        const chId = req.params;
+            createdDocIds.push(doc._id.toString());
+        }
 
         form.append('userId', userId);
         form.append('subject', subId);
-        form.append('subject', chId);
+        form.append('chapter', chId);
 
         const response = await axios.post(
             `${process.env.FASTAPI_URL}/upload_docs`,
@@ -85,15 +87,11 @@ const uploadDocs = async (req: Request, res: Response) => {
             }
         );
 
-        // Mark documents as completed on success
-        if (createdDocIds.length) {
-            await Document.updateMany(
-                { _id: { $in: createdDocIds } },
-                { $set: { status: 'completed' } }
-            );
-        }
-
-        // ✅ Clean up temp files
+        await Document.updateMany(
+            { _id: { $in: createdDocIds } },
+            { $set: { status: 'completed' } }
+        );
+    
         for (const file of files) {
             if (file.path && fs.existsSync(file.path)) {
                 fs.unlinkSync(file.path);
@@ -103,24 +101,19 @@ const uploadDocs = async (req: Request, res: Response) => {
         res.json(new ApiResponse(true, 'Documents uploaded & indexed', response.data));
 
     } catch (error: any) {
-        // Mark documents as failed on error and clean up
-        const files: UploadedFile[] = (req as Request & { files?: UploadedFile[] }).files ?? [];
-        for (const file of files || []) {
+
+        if (createdDocIds.length) {
+            await Document.updateMany(
+                { _id: { $in: createdDocIds } },
+                { $set: { status: 'failed' } }
+            ).catch(() => {}); 
+        }
+
+        for (const file of files) {
             if (file.path && fs.existsSync(file.path)) {
                 fs.unlinkSync(file.path);
             }
         }
-
-        try {
-            // Best-effort status update
-            const createdDocIds: string[] = (req as any)._createdDocIds || [];
-            if (createdDocIds.length) {
-                await Document.updateMany(
-                    { _id: { $in: createdDocIds } },
-                    { $set: { status: 'failed' } }
-                );
-            }
-        } catch {}
 
         console.error('Upload error:', error.message);
         res.status(500).json(new ApiResponse(false, error.message));
@@ -136,29 +129,29 @@ const listDocs = AsyncHandler(async (req: Request, res: Response) => {
     }
 
     try {
-        const response = await axios.get(`${process.env.FASTAPI_URL}/list_docs`, {
-            headers: { Authorization: `Bearer ${token}` },
-            timeout: 10000,
-            validateStatus: () => true, 
-        });
+        // const response = await axios.get(`${process.env.FASTAPI_URL}/list_docs`, {
+        //     headers: { Authorization: `Bearer ${token}` },
+        //     timeout: 10000,
+        //     validateStatus: () => true, 
+        // });
 
-        if (response.status >= 400) {
-            throw new ApiError(`FastAPI error: ${response.status}`, response.status);
-        }
+        // if (response.status >= 400) {
+        //     throw new ApiError(`FastAPI error: ${response.status}`, response.status);
+        // }
 
         const userId = (req as any).user?._id?.toString();
         if (!userId) {
             throw new ApiError('Unauthorized', 401);
         }
 
-        // const docs = await Document.findById({
-        //     userId:userId
-        // })
+        const docs = await Document.find({
+            userId: userId
+        })
 
-        // console.log(docs)
+        console.log(docs)
 
         res.json(
-            new ApiResponse(true, 'Documents listed', response.data)
+            new ApiResponse(true, 'Documents listed', docs)
         );
 
     } catch (err: any) {
@@ -174,10 +167,10 @@ const listDocs = AsyncHandler(async (req: Request, res: Response) => {
 });
 
 const delete_docs = AsyncHandler(async (req: Request, res: Response) => {
-    let filename = 
-    (req.body as any)?.filename ||           
-    (req.query as any)?.filename ||        
-    (req.params as any)?.filename;           
+    let filename =
+        (req.body as any)?.filename ||
+        (req.query as any)?.filename ||
+        (req.params as any)?.filename;
 
     if (Array.isArray(filename)) filename = filename[0];
 

@@ -85,7 +85,7 @@ userSchema.methods.generateAccessToken = function() {
             username: this.username,
             fullname: this.fullname,
             role: this.role
-        }, secret,{algorithm: "HS256"});
+        }, secret,{algorithm: "HS256", expiresIn: '15m'} );
 };
 
 userSchema.methods.generateRefreshToken = function() {
@@ -98,7 +98,7 @@ userSchema.methods.generateRefreshToken = function() {
    return jwt.sign({
             _id: this._id,
             jti: randomBytes(16).toString("hex")
-        }, secret,{algorithm: "HS256"});
+        }, secret,{algorithm: "HS256",expiresIn: '7d' });
 
 }
 

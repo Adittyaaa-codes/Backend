@@ -22,13 +22,7 @@ const chSchema = new Schema<IChapter>({
   order: {
     type: Number,
     default: 0
-  },
-  resources: [
-    {
-      type: Schema.Types.ObjectId,
-      ref: 'Document'
-    }
-  ]
+  }
 }, { timestamps: true });
 
 export const Chapter = mongoose.model<IChapter>('Chapter', chSchema);
