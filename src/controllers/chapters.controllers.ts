@@ -7,7 +7,8 @@ import { Chapter } from '../models/chapters.model';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware';
 
 const addChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-    const { subjectId, chapterName } = req.body;
+    const { id: subjectId } = req.params;
+    const { chapterName } = req.body;
 
     const userId = (req as any).user?._id?.toString();
 

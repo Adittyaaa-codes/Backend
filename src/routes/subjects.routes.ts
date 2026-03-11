@@ -11,7 +11,7 @@ const router = Router();
 
 router.get('/get-all-subjects', verifyJWT, getSubjects);
 router.post('/add', verifyJWT, addSubject);
-router.put('/:id', verifyJWT, editSubject);
-router.delete('/:id', verifyJWT, delSubject);
+router.put('/edit/:id', verifyJWT, editSubject);
+router.delete('/delete/:id', verifyJWT, delSubject);
 
 export default router;

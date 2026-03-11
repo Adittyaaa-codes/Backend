@@ -101,7 +101,6 @@ const uploadDocs = async (req: Request, res: Response) => {
         res.json(new ApiResponse(true, 'Documents uploaded & indexed', response.data));
 
     } catch (error: any) {
-
         if (createdDocIds.length) {
             await Document.updateMany(
                 { _id: { $in: createdDocIds } },
@@ -115,8 +114,11 @@ const uploadDocs = async (req: Request, res: Response) => {
             }
         }
 
-        console.error('Upload error:', error.message);
-        res.status(500).json(new ApiResponse(false, error.message));
+        const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message;
+        console.error('Upload error details:', error.response?.data);
+        console.error('Upload error:', errorMessage);
+        
+        res.status(error.response?.status || 500).json(new ApiResponse(false, errorMessage));
     }
 };
 
