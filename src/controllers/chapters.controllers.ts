@@ -10,13 +10,14 @@ const addChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
     const { id: subjectId } = req.params;
     const { chapterName } = req.body;
 
-    const userId = (req as any).user?._id?.toString();
+    if (!req.user) throw new ApiError('Unauthorized', 401);
+    const userId = req.user._id.toString();
 
     if (!subjectId || !chapterName) throw new ApiError('subjectId and chapterName required', 400);
 
     const subject = await Subject.findOne({
-        _id: subjectId,
-        owner: userId
+        _id: subjectId as any,
+        owner: userId as any
     });
 
     if (!subject) throw new ApiError('Subject not found', 404);
@@ -38,12 +39,13 @@ const addChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
 const getChapters = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id: subjectId } = req.params;
 
-    const userId = (req as any).user?._id?.toString();
+    if (!req.user) throw new ApiError('Unauthorized', 401);
+    const userId = req.user._id.toString();
 
-    const subject = await Subject.findOne({ _id: subjectId, owner: userId });
+    const subject = await Subject.findOne({ _id: subjectId as any, owner: userId as any });
     if (!subject) throw new ApiError('Subject not found', 404);
 
-    const chapters = await Chapter.find({ subject: subjectId })
+    const chapters = await Chapter.find({ subject: subjectId as any })
         .sort({ order: 1 });
 
     res.json(new ApiResponse(true, 'Chapters fetched', chapters));
@@ -72,12 +74,13 @@ const updateChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Respon
 const deleteChapter = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const { id } = req.params;
 
-    const userId = (req as any).user?._id?.toString();
+    if (!req.user) throw new ApiError('Unauthorized', 401);
+    const userId = req.user._id.toString();
 
     const chapter = await Chapter.findById(id);
     if (!chapter) throw new ApiError('Chapter not found', 404);
 
-    const subject = await Subject.findOne({ _id: chapter.subject, owner: userId });
+    const subject = await Subject.findOne({ _id: chapter.subject as any, owner: userId as any });
     if (!subject) throw new ApiError('Unauthorized', 403);
 
     await chapter.deleteOne();
