@@ -81,13 +81,13 @@ const userLogin = AsyncHandler(async (req: Request, res: Response) => {
     const cookieOptions: CookieOptions = {
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
     };
 
     const refreshCookieOptions: CookieOptions = {
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
     };
 
     const userInfo = await User.findById(userFound._id).select("-refreshToken -password");
@@ -119,7 +119,7 @@ const userLogout = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
     const cookieOptions: CookieOptions = {
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
+        sameSite: 'none',
         path: '/'
     };
 
