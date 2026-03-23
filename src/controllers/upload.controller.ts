@@ -84,6 +84,7 @@ const uploadDocs = async (req: Request, res: Response) => {
                 },
                 maxContentLength: Infinity,
                 maxBodyLength: Infinity,
+                timeout: 120000,
                 maxRedirects: 0
             }
         );
