@@ -5,7 +5,7 @@ import { uploadDocs, listDocs, delete_docs } from "../controllers/upload.control
 
 const router = Router();
 
-router.post('/docs/:subId/:chId', verifyJWT, upload.array('files', 10), uploadDocs);
+router.post('/upload_docs', verifyJWT, upload.array('files', 10), uploadDocs);
 router.get('/list_docs', verifyJWT, listDocs);
 router.delete('/delete_docs', verifyJWT, delete_docs);
 

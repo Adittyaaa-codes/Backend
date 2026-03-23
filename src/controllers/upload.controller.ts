@@ -34,7 +34,7 @@ const uploadDocs = async (req: Request, res: Response) => {
         throw new ApiError('Unauthorized', 401);
     }
 
-    const { subId, chId } = req.params;
+    const { subject: subId, chapter: chId } = req.body;
 
     if (!subId || !chId) {
         throw new ApiError('Subject and Chapter are required', 400);
