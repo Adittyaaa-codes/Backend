@@ -41,21 +41,13 @@ const uploadDocs = async (req: Request, res: Response) => {
     }
 
     const createdDocIds: string[] = [];
+    const responses: any[] = [];
 
     try {
-        const form = new FormData();
-
         for (const file of files) {
             if (!file.path || !fs.existsSync(file.path)) {
                 throw new ApiError(`File not found: ${file.path}`, 500);
             }
-
-            const buffer = fs.readFileSync(file.path);
-
-            form.append('files', buffer, {
-                filename: file.originalname,
-                contentType: file.mimetype,
-            });
 
             const doc = await Document.create({
                 userId,
@@ -68,39 +60,43 @@ const uploadDocs = async (req: Request, res: Response) => {
             });
 
             createdDocIds.push(doc._id.toString());
-        }
 
-        form.append('userId', userId);
-        form.append('subject', subId);
-        form.append('chapter', chId);
+            const form = new FormData();
+            const buffer = fs.readFileSync(file.path);
 
-        const response = await axios.post(
-            `${process.env.FASTAPI_URL}/upload_docs`,
-            form,
-            {
-                headers: {
-                    ...form.getHeaders(),
-                    Authorization: `Bearer ${token}`
-                },
-                maxContentLength: Infinity,
-                maxBodyLength: Infinity,
-                timeout: 120000,
-                maxRedirects: 0
-            }
-        );
+            form.append('file', buffer, {
+                filename: file.originalname,
+                contentType: file.mimetype,
+            });
+            form.append('subject', subId);
+            form.append('chapter', chId);
 
-        await Document.updateMany(
-            { _id: { $in: createdDocIds } },
-            { $set: { status: 'completed' } }
-        );
-    
-        for (const file of files) {
+            const response = await axios.post(
+                `${process.env.FASTAPI_URL}/index`,
+                form,
+                {
+                    headers: {
+                        ...form.getHeaders(),
+                        Authorization: `Bearer ${token}`
+                    },
+                    maxContentLength: Infinity,
+                    maxBodyLength: Infinity,
+                    timeout: 120000,
+                }
+            );
+            responses.push(response.data);
+
             if (file.path && fs.existsSync(file.path)) {
                 fs.unlinkSync(file.path);
             }
         }
 
-        res.json(new ApiResponse(true, 'Documents uploaded & indexed', response.data));
+        await Document.updateMany(
+            { _id: { $in: createdDocIds } },
+            { $set: { status: 'completed' } }
+        );
+
+        res.json(new ApiResponse(true, 'Documents uploaded & indexed', responses));
 
     } catch (error: any) {
         if (createdDocIds.length) {
