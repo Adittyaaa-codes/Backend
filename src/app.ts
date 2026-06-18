@@ -12,7 +12,7 @@ const app = express();
 
 app.use(express.json());
 app.use(cors({
-    origin: ['https://studybot99.onrender.com'],
+    origin: ['https://studybot99.onrender.com', 'http://localhost:5173', 'http://localhost:3000'],
     credentials: true
 }));
 app.use(express.urlencoded({ extended: true }));

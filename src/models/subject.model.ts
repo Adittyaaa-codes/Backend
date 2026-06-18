@@ -3,7 +3,7 @@ import mongoose, { Schema } from "mongoose";
 export interface ISubject extends mongoose.Document{
     subName:string,
     desc:string
-    globalResources:string,
+    globalResources:Schema.Types.ObjectId[],
     owner:Schema.Types.ObjectId
     chapters:Schema.Types.ObjectId[]
 }

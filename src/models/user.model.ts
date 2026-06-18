@@ -85,7 +85,7 @@ userSchema.methods.generateAccessToken = function() {
             username: this.username,
             fullname: this.fullname,
             role: this.role
-        }, secret,{algorithm: "HS256", expiresIn: '15m'} );
+        }, secret,{algorithm: "HS256", expiresIn: '24h'} );
 };
 
 userSchema.methods.generateRefreshToken = function() {

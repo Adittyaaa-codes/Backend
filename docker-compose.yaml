@@ -1,0 +1,28 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: mongo_local
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: secret123
+      MONGO_INITDB_DATABASE: myapp
+    volumes:
+      - mongo_data:/data/db
+
+  node:
+    build: .
+    container_name: node_backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Make sure these match the variables expected by your Node app
+      - MONGO_URI=mongodb://admin:secret123@mongo:27017/myapp?authSource=admin
+      # Add other environment variables (like JWT_SECRET, GOOGLE OAuth credentials, etc.) here
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data:

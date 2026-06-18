@@ -5,6 +5,7 @@ export interface IChapter extends Document {
   subject: Types.ObjectId;    // ← back-reference to subject
   order: number;
   resources: Types.ObjectId[];
+  desc?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +23,16 @@ const chSchema = new Schema<IChapter>({
   order: {
     type: Number,
     default: 0
+  },
+  resources: [
+    {
+      type: Schema.Types.ObjectId,
+      ref: 'Document'
+    }
+  ],
+  desc: {
+    type: String,
+    default: ""
   }
 }, { timestamps: true });
 

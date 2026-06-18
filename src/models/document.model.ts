@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 interface IDocument extends mongoose.Document {
     userId: mongoose.Types.ObjectId;
     subject: mongoose.Types.ObjectId;
-    chapter: mongoose.Types.ObjectId;
+    chapter?: mongoose.Types.ObjectId | null;
     fileName: string;
     filePath: string;
     fileSize: number;
@@ -29,7 +29,8 @@ const documentSchema = new mongoose.Schema<IDocument>({
     chapter: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Chapter',
-        required: true
+        required: false,
+        default: null
     },
     fileName: {
         type: String,
