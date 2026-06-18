@@ -1,34 +1,19 @@
 // src/config/upload.config.ts
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
 
-// Create temp directory if doesn't exist
-const tempDir = './temp/uploads';
-if (!fs.existsSync(tempDir)) {
-    fs.mkdirSync(tempDir, { recursive: true });
-}
+// Use memory storage — files are held as Buffer in RAM.
+// This avoids filesystem permission issues on cloud platforms (Render, Railway, etc.)
+// Files are forwarded directly to FastAPI without writing to disk.
+const storage = multer.memoryStorage();
 
-// Configure disk storage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, tempDir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
-        const ext = path.extname(file.originalname);
-        cb(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-    }
-});
-
-// File filter - accept only PDFs and DOCX
+// File filter - accept only PDFs, DOCX, and TXT
 const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     const allowedTypes = [
-        'application/pdf', 
+        'application/pdf',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'text/plain'
     ];
-    
+
     if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {

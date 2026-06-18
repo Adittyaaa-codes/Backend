@@ -1,6 +1,4 @@
 import { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
 import axios from 'axios';
 import FormData from 'form-data';
 import ApiResponse from '../utils/ApiResponse';
@@ -8,15 +6,11 @@ import ApiError from '../utils/ApiError';
 import AsyncHandler from '../utils/AsyncHandler';
 import { Document } from '../models/document.model';
 
-type UploadedFile = {
-    path?: string;
-    originalname: string;
-    mimetype: string;
-    size: number;
-};
+// With memoryStorage, multer adds a `buffer` field to each file instead of `path`
+type UploadedFile = Express.Multer.File;
 
 const uploadDocs = async (req: Request, res: Response) => {
-    const files: UploadedFile[] = (req as Request & { files?: UploadedFile[] }).files ?? [];
+    const files: UploadedFile[] = (req as any).files ?? [];
 
     if (!files?.length) {
         throw new ApiError('No files provided', 400);
@@ -40,19 +34,26 @@ const uploadDocs = async (req: Request, res: Response) => {
         throw new ApiError('Subject and Chapter are required', 400);
     }
 
+    const FASTAPI_URL = process.env.FASTAPI_URL;
+    if (!FASTAPI_URL) {
+        throw new ApiError('Server misconfiguration: FASTAPI_URL is not set', 500);
+    }
+
     const createdDocIds: string[] = [];
     const responses: any[] = [];
 
     try {
         for (const file of files) {
-            if (!file.path || !fs.existsSync(file.path)) {
-                throw new ApiError(`File not found: ${file.path}`, 500);
+            // With memoryStorage, file.buffer holds the file content in RAM
+            if (!file.buffer || file.buffer.length === 0) {
+                throw new ApiError(`Empty file received: ${file.originalname}`, 400);
             }
 
+            // Save document record to MongoDB
             const doc = await Document.create({
                 userId,
                 fileName: file.originalname,
-                filePath: file.path,
+                filePath: `memory:${file.originalname}`, // no disk path in memory mode
                 fileSize: file.size,
                 mimeType: file.mimetype,
                 subject: subId,
@@ -61,36 +62,37 @@ const uploadDocs = async (req: Request, res: Response) => {
 
             createdDocIds.push(doc._id.toString());
 
+            // Forward the file buffer directly to FastAPI
             const form = new FormData();
-            const buffer = fs.readFileSync(file.path);
-
-            form.append('file', buffer, {
+            form.append('file', file.buffer, {
                 filename: file.originalname,
                 contentType: file.mimetype,
+                knownLength: file.buffer.length,
             });
             form.append('subject', subId);
             form.append('chapter', chId);
 
+            console.log(`Forwarding file "${file.originalname}" (${file.size} bytes) to FastAPI...`);
+
             const response = await axios.post(
-                `${process.env.FASTAPI_URL}/index`,
+                `${FASTAPI_URL}/index`,
                 form,
                 {
                     headers: {
                         ...form.getHeaders(),
-                        Authorization: `Bearer ${token}`
+                        Authorization: `Bearer ${token}`,
                     },
                     maxContentLength: Infinity,
                     maxBodyLength: Infinity,
                     timeout: 120000,
                 }
             );
-            responses.push(response.data);
 
-            if (file.path && fs.existsSync(file.path)) {
-                fs.unlinkSync(file.path);
-            }
+            console.log(`FastAPI indexed "${file.originalname}" successfully`);
+            responses.push(response.data);
         }
 
+        // Mark all documents as completed
         await Document.updateMany(
             { _id: { $in: createdDocIds } },
             { $set: { status: 'completed' } }
@@ -99,23 +101,22 @@ const uploadDocs = async (req: Request, res: Response) => {
         res.json(new ApiResponse(true, 'Documents uploaded & indexed', responses));
 
     } catch (error: any) {
+        // Mark all created documents as failed
         if (createdDocIds.length) {
             await Document.updateMany(
                 { _id: { $in: createdDocIds } },
                 { $set: { status: 'failed' } }
-            ).catch(() => {}); 
+            ).catch(() => {});
         }
 
-        for (const file of files) {
-            if (file.path && fs.existsSync(file.path)) {
-                fs.unlinkSync(file.path);
-            }
-        }
+        const errorMessage =
+            error.response?.data?.detail ||
+            error.response?.data?.message ||
+            error.message;
 
-        const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message;
         console.error('Upload error details:', error.response?.data);
         console.error('Upload error:', errorMessage);
-        
+
         res.status(error.response?.status || 500).json(new ApiResponse(false, errorMessage));
     }
 };
@@ -129,30 +130,16 @@ const listDocs = AsyncHandler(async (req: Request, res: Response) => {
     }
 
     try {
-        // const response = await axios.get(`${process.env.FASTAPI_URL}/list_docs`, {
-        //     headers: { Authorization: `Bearer ${token}` },
-        //     timeout: 10000,
-        //     validateStatus: () => true, 
-        // });
-
-        // if (response.status >= 400) {
-        //     throw new ApiError(`FastAPI error: ${response.status}`, response.status);
-        // }
-
         const userId = (req as any).user?._id?.toString();
         if (!userId) {
             throw new ApiError('Unauthorized', 401);
         }
 
-        const docs = await Document.find({
-            userId: userId
-        })
+        const docs = await Document.find({ userId });
 
-        console.log(docs)
+        console.log(docs);
 
-        res.json(
-            new ApiResponse(true, 'Documents listed', docs)
-        );
+        res.json(new ApiResponse(true, 'Documents listed', docs));
 
     } catch (err: any) {
         console.error('❌ /list_docs error:', {
@@ -186,9 +173,14 @@ const delete_docs = AsyncHandler(async (req: Request, res: Response) => {
         throw new ApiError('Missing access token', 401);
     }
 
+    const FASTAPI_URL = process.env.FASTAPI_URL;
+    if (!FASTAPI_URL) {
+        throw new ApiError('Server misconfiguration: FASTAPI_URL is not set', 500);
+    }
+
     try {
         const response = await axios.delete(
-            `${process.env.FASTAPI_URL}/delete_docs/${encodeURIComponent(filename)}`,
+            `${FASTAPI_URL}/delete_docs/${encodeURIComponent(filename)}`,
             {
                 headers: { Authorization: `Bearer ${token}` },
                 timeout: 10000,
@@ -200,9 +192,8 @@ const delete_docs = AsyncHandler(async (req: Request, res: Response) => {
             throw new ApiError(`FastAPI error: ${response.status}`, response.status);
         }
 
-        return res.json(
-            new ApiResponse(true, 'Document deleted', response.data)
-        );
+        return res.json(new ApiResponse(true, 'Document deleted', response.data));
+
     } catch (err: any) {
         console.error('❌ /delete_docs error:', {
             message: err.message,
@@ -215,8 +206,4 @@ const delete_docs = AsyncHandler(async (req: Request, res: Response) => {
     }
 });
 
-
-
-
-export { uploadDocs, listDocs, delete_docs }
-
+export { uploadDocs, listDocs, delete_docs };
