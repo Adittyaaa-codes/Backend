@@ -131,4 +131,17 @@ const userLogout = AsyncHandler(async (req: AuthenticatedRequest, res: Response)
 
 
 
-export { userRegister, userLogin ,userLogout};
+const getCurrentUser = AsyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user?._id) {
+        throw new ApiError("Not authenticated", 401);
+    }
+
+    const user = await User.findById(req.user._id).select("-password -refreshToken");
+    if (!user) {
+        throw new ApiError("User not found", 404);
+    }
+
+    res.status(200).json(new ApiResponse(true, "Current user fetched", user));
+});
+
+export { userRegister, userLogin ,userLogout, getCurrentUser};

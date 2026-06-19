@@ -14,6 +14,8 @@ export interface IUser {
     refreshToken: string,
     APIkey: string;
     role?: string;
+    tokensUsed: number;
+    tokenLimit: number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -59,6 +61,14 @@ const userSchema = new Schema<IUser, UserModel, IUserMethods>({
         type: String,
         default: 'user'
     },
+    tokensUsed: {
+        type: Number,
+        default: 0
+    },
+    tokenLimit: {
+        type: Number,
+        default: 500000
+    }
 },{timestamps:true})
 
 //midleware 
